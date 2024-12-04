@@ -1,10 +1,10 @@
 services:
-  telegram_batch_bot:
+  telegram-hermes:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '10000:10000'
+      - '127.0.0.1:10000:10000'
     env_file:
       - .env
     restart: unless-stopped

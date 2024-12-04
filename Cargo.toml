@@ -12,3 +12,7 @@ log = "0.4.22"
 actix-web = "4.9.0"
 log4rs = "1.3.0"
 dotenvy = "0.15.7"
+
+[[bin]]
+name = "telegram-hermes"
+path = "src/main.rs"

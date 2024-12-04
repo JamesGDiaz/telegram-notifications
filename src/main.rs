@@ -34,6 +34,13 @@ async fn receive_message(
     query: web::Query<SenderIdQuery>,
 ) -> impl Responder {
     // Append the received text to the messages vector
+    let unknown = String::from("unknown");
+    info!(
+        "Received notification from '{}'   message: {}",
+        query.sender_id.as_ref().unwrap_or_else(|| &unknown),
+        input.text
+    );
+
     let mut messages = data.messages.lock().await;
     messages.push(MessageInput {
         sender_id: query.sender_id.clone(),
@@ -125,7 +132,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(app_state.clone()))
             .route("/notification", web::post().to(receive_message))
     })
-    .bind(("127.0.0.1", 10000))? // Bind to port 10000
+    .bind(("0.0.0.0", 10000))? // Bind to port
     .run()
     .await
 }

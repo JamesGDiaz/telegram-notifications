@@ -1,32 +1,32 @@
-# Dockerfile
+FROM rust:1.83 AS build
 
-# Stage 1: Build the Rust application
-FROM rust:1.83 as builder
+# create a new empty shell project
+WORKDIR /build
+RUN USER=root cargo new --bin telegram-hermes
 
-# Create a new directory for the application
-WORKDIR /app
+# copy over your manifests
+COPY Cargo.lock Cargo.toml ./telegram-hermes/
 
-# Copy Cargo files to leverage Docker cache
-COPY Cargo.toml Cargo.lock ./
+WORKDIR /build/telegram-hermes
 
-# Create an empty main.rs and build dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs
+# this build step will cache your dependencies
+RUN cargo build --release && rm src/*.rs && rm target/release/deps/telegram_hermes*
+
+# copy your source tree
+COPY ./src/* src/
+
+# build for release
 RUN cargo build --release
 
-# Copy the source code
-COPY src ./src
+# our final base
+FROM debian:bookworm-slim
 
-# Build the application
-RUN cargo build --release
+RUN apt-get update && apt install -y ca-certificates
 
-# Stage 2: Create a minimal runtime image
-FROM debian:buster-slim
+# copy the build artifact from the build stage
+COPY --from=build /build/telegram-hermes/target/release/telegram-hermes .
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/release/telegram_hermes /usr/local/bin/telegram_hermes
-
-# Expose the port the app runs on
 EXPOSE 10000
 
-# Run the application
-ENTRYPOINT ["/usr/local/bin/telegram_hermes"]
+# set the startup command to run your binary
+CMD ["./telegram-hermes"]
