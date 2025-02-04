@@ -17,7 +17,6 @@ import (
 // LogMessage holds the details of an incoming log entry.
 type LogMessage struct {
 	Sender string
-	Level  string
 	Text   string
 }
 
@@ -70,6 +69,9 @@ func aggregator(msgChan <-chan LogMessage) {
 			select {
 			case m := <-msgChan:
 				messages = append(messages, m)
+				if len(messages) >= 5 {
+					break loop
+				}
 			case <-timer.C:
 				break loop
 			}
@@ -77,15 +79,17 @@ func aggregator(msgChan <-chan LogMessage) {
 
 		// Combine messages. For each message, if a sender is provided, prefix the text.
 		combined := ""
-		for _, m := range messages {
+		for i, m := range messages {
 			if m.Sender != "" {
-				combined += fmt.Sprintf("From: *%s*: ", m.Sender)
-			}
-			if m.Level != "" {
-				combined += fmt.Sprintf("`[%s]` ", m.Level)
+				combined += fmt.Sprintf("From: *%s*:\n", m.Sender)
 			}
 			combined += m.Text + "\n"
+			if len(messages) > 1 && i < len(messages)-1 {
+				combined += "---------------------------------\n\n"
+			}
 		}
+
+		log.Printf("Log message received: %s", combined)
 
 		// Send the aggregated message to Telegram.
 		if err := sendTelegramMessage(combined); err != nil {
@@ -100,7 +104,7 @@ func aggregator(msgChan <-chan LogMessage) {
 }
 
 // submitHandler handles POST requests to /notification. It reads the Markdown text from
-// the request body and extracts the optional query parameters "sender" and "level".
+// the request body and extracts the optional query parameters "sender".
 // On error (e.g. empty body), it returns an error to the client and sends a Telegram
 // notification.
 func submitHandler(msgChan chan<- LogMessage) http.HandlerFunc {
@@ -122,12 +126,10 @@ func submitHandler(msgChan chan<- LogMessage) http.HandlerFunc {
 
 		// Retrieve optional query parameters.
 		sender := r.URL.Query().Get("sender")
-		level := r.URL.Query().Get("level")
 
 		// Send the log message to the aggregator.
 		msg := LogMessage{
 			Sender: sender,
-			Level:  level,
 			Text:   text,
 		}
 
