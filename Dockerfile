@@ -1,32 +1,28 @@
-FROM rust:1.83 AS build
+FROM golang:1.23-alpine AS builder
+WORKDIR /app
 
-# create a new empty shell project
-WORKDIR /build
-RUN USER=root cargo new --bin telegram-hermes
+# Install git (needed for go modules, if not already cached)
+RUN apk add --no-cache git
 
-# copy over your manifests
-COPY Cargo.lock Cargo.toml ./telegram-hermes/
+# Copy go.mod and go.sum to download dependencies.
+COPY go.mod go.sum ./
+RUN go mod download
 
-WORKDIR /build/telegram-hermes
+# Copy the source code.
+COPY . .
 
-# this build step will cache your dependencies
-RUN cargo build --release && rm src/*.rs && rm target/release/deps/telegram_hermes*
+# Build the Go binary with CGO disabled for a static binary.
+RUN CGO_ENABLED=0 go build -o telegram_app .
 
-# copy your source tree
-COPY ./src/* src/
+# Final stage
+FROM alpine:latest
+WORKDIR /app
 
-# build for release
-RUN cargo build --release
-
-# our final base
-FROM debian:bookworm-slim
-
-RUN apt-get update && apt install -y ca-certificates
-
-# copy the build artifact from the build stage
-COPY --from=build /build/telegram-hermes/target/release/telegram-hermes .
+# Copy the binary and .env file (if needed) from the builder stage.
+COPY --from=builder /app/telegram_app .
+COPY .env .
 
 EXPOSE 10000
 
-# set the startup command to run your binary
-CMD ["./telegram-hermes"]
+# Run the application.
+CMD ["./telegram_app"]
