@@ -79,7 +79,7 @@ func aggregator(msgChan <-chan LogMessage) {
 		combined := ""
 		for _, m := range messages {
 			if m.Sender != "" {
-				combined += fmt.Sprintf("*%s*: ", m.Sender)
+				combined += fmt.Sprintf("From: *%s*: ", m.Sender)
 			}
 			if m.Level != "" {
 				combined += fmt.Sprintf("`[%s]` ", m.Level)
@@ -99,7 +99,7 @@ func aggregator(msgChan <-chan LogMessage) {
 	}
 }
 
-// submitHandler handles POST requests to /submit. It reads the Markdown text from
+// submitHandler handles POST requests to /notification. It reads the Markdown text from
 // the request body and extracts the optional query parameters "sender" and "level".
 // On error (e.g. empty body), it returns an error to the client and sends a Telegram
 // notification.
@@ -173,7 +173,7 @@ func main() {
 	go aggregator(msgChan)
 
 	// Register the HTTP handler.
-	http.HandleFunc("/submit", submitHandler(msgChan))
+	http.HandleFunc("/notification", submitHandler(msgChan))
 
 	// Use PORT from env (default to 10000 if not set).
 	port := os.Getenv("PORT")
